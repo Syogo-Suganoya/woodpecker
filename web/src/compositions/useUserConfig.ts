@@ -1,10 +1,13 @@
 import { useStorage } from '@vueuse/core';
 import { computed } from 'vue';
 
+export type ReposSortBy = 'activity' | 'name';
+
 interface UserConfig {
   isPipelineFeedOpen: boolean;
   redirectUrl: string;
   collapseLogGroupsByDefault: boolean;
+  reposSortBy: ReposSortBy;
 }
 
 const config = useStorage<UserConfig>(
@@ -13,6 +16,7 @@ const config = useStorage<UserConfig>(
     isPipelineFeedOpen: false,
     redirectUrl: '',
     collapseLogGroupsByDefault: true,
+    reposSortBy: 'activity',
   },
   undefined,
   { mergeDefaults: true },

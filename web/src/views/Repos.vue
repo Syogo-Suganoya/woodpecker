@@ -35,18 +35,29 @@
         </div>
 
         <div class="flex flex-col gap-4">
-          <div>
-            <h2 class="text-wp-text-100 text-lg">{{ $t('repositories.all.title') }}</h2>
-            <span class="text-wp-text-alt-100">{{ $t('repositories.all.desc') }}</span>
+          <div class="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 class="text-wp-text-100 text-lg">{{ $t('repositories.all.title') }}</h2>
+              <span class="text-wp-text-alt-100">{{
+                sortBy === 'name' ? $t('repositories.all.desc_name') : $t('repositories.all.desc')
+              }}</span>
+            </div>
+            <SelectField
+              v-model="sortBy"
+              :options="sortOptions"
+              :title="$t('repositories.sort.title')"
+              :aria-label="$t('repositories.sort.title')"
+              class="w-auto!"
+            />
           </div>
           <div class="flex flex-col gap-4">
-            <RepoItem v-for="repo in reposLastActivity" :key="repo.id" :repo="repo" />
+            <RepoItem v-for="repo in sortedRepos" :key="repo.id" :repo="repo" />
           </div>
         </div>
       </div>
       <div v-else class="flex flex-col">
-        <div v-if="reposLastActivity.length > 0" class="flex flex-col gap-4">
-          <RepoItem v-for="repo in reposLastActivity" :key="repo.id" :repo="repo" />
+        <div v-if="sortedRepos.length > 0" class="flex flex-col gap-4">
+          <RepoItem v-for="repo in sortedRepos" :key="repo.id" :repo="repo" />
         </div>
         <span v-else class="text-wp-text-100 text-center text-lg">{{ $t('no_search_results') }}</span>
       </div>
@@ -59,24 +70,44 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import Button from '~/components/atomic/Button.vue';
+import SelectField from '~/components/form/SelectField.vue';
+import type { SelectOption } from '~/components/form/form.types';
 import Scaffold from '~/components/layout/scaffold/Scaffold.vue';
 import RepoItem from '~/components/repo/RepoItem.vue';
 import { useAsyncAction } from '~/compositions/useAsyncAction';
 import useRepos from '~/compositions/useRepos';
 import { useRepoSearch } from '~/compositions/useRepoSearch';
+import useUserConfig from '~/compositions/useUserConfig';
+import type { ReposSortBy } from '~/compositions/useUserConfig';
 import { useWPTitle } from '~/compositions/useWPTitle';
 import { useRepoStore } from '~/store/repos';
 
 const repoStore = useRepoStore();
 
-const { sortReposByLastAccess, sortReposByLastActivity, repoWithLastPipeline } = useRepos();
+const { sortReposByLastAccess, sortReposByLastActivity, sortReposByName, repoWithLastPipeline } = useRepos();
+const { t } = useI18n();
 const repos = computed(() => Object.values(repoStore.ownedRepos).map((r) => repoWithLastPipeline(r)));
 
 const reposLastAccess = computed(() => sortReposByLastAccess(repos.value || []).slice(0, 4));
 
 const search = ref('');
 const { searchedRepos } = useRepoSearch(repos, search);
-const reposLastActivity = computed(() => sortReposByLastActivity(searchedRepos.value || []));
+
+// the selected sorting is saved, so the list does not reorder unexpectedly on the next visit
+const { userConfig, setUserConfig } = useUserConfig();
+const sortBy = computed<string>({
+  get: () => userConfig.value.reposSortBy,
+  set: (value) => setUserConfig('reposSortBy', value as ReposSortBy),
+});
+const sortOptions = computed<SelectOption[]>(() => [
+  { value: 'activity', text: t('repositories.sort.activity') },
+  { value: 'name', text: t('repositories.sort.name') },
+]);
+const sortedRepos = computed(() =>
+  sortBy.value === 'name'
+    ? sortReposByName(searchedRepos.value || [])
+    : sortReposByLastActivity(searchedRepos.value || []),
+);
 
 const { doSubmit: refreshRepositories, isLoading: isRefreshing } = useAsyncAction(async () => {
   await repoStore.refreshRepos();
@@ -87,7 +118,6 @@ onMounted(async () => {
   await repoStore.loadRepos();
 });
 
-const { t } = useI18n();
 useWPTitle(computed(() => [t('repositories.title')]));
 </script>
 

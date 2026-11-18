@@ -7,11 +7,17 @@
     "title": "Repositories",
     "all": {
       "title": "All repositories",
-      "desc": "Repositories sorted by last pipeline creation"
+      "desc": "Repositories sorted by last pipeline creation",
+      "desc_name": "Repositories sorted by name"
     },
     "last": {
       "title": "Last visited",
       "desc": "Most recently visited repositories sorted by access time"
+    },
+    "sort": {
+      "title": "Sort repositories by",
+      "activity": "Last activity",
+      "name": "Name"
     }
   },
   "docs": "Docs",
