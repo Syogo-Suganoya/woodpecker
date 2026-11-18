@@ -39,12 +39,17 @@ func (b bounds) Dx() float64 {
 }
 
 type badgeDrawer struct {
-	fd    *font.Drawer
-	tmpl  *template.Template
-	mutex *sync.Mutex
+	fd        *font.Drawer
+	templates map[Style]*template.Template
+	mutex     *sync.Mutex
 }
 
-func (d *badgeDrawer) Render(subject, status string, color Color, w io.Writer) error {
+func (d *badgeDrawer) Render(subject, status string, color Color, style Style, w io.Writer) error {
+	tmpl, ok := d.templates[style]
+	if !ok {
+		tmpl = d.templates[StyleFlat]
+	}
+
 	d.mutex.Lock()
 	subjectDx := d.measureString(subject)
 	statusDx := d.measureString(status)
@@ -61,12 +66,12 @@ func (d *badgeDrawer) Render(subject, status string, color Color, w io.Writer) e
 			StatusX:   subjectDx + statusDx/2.0 - 1,
 		},
 	}
-	return d.tmpl.Execute(w, bdg)
+	return tmpl.Execute(w, bdg)
 }
 
-func (d *badgeDrawer) RenderBytes(subject, status string, color Color) ([]byte, error) {
+func (d *badgeDrawer) RenderBytes(subject, status string, color Color, style Style) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	err := d.Render(subject, status, color, buf)
+	err := d.Render(subject, status, color, style, buf)
 	return buf.Bytes(), err
 }
 
@@ -79,13 +84,13 @@ func (d *badgeDrawer) measureString(s string) float64 {
 	return float64(d.fd.MeasureString(s)>>SHIFT) + extraDx
 }
 
-// RenderBytes renders a badge of the given color, with given subject and status to bytes.
-func RenderBytes(subject, status string, color Color) ([]byte, error) {
+// RenderBytes renders a badge of the given color and style, with given subject and status to bytes.
+func RenderBytes(subject, status string, color Color, style Style) ([]byte, error) {
 	drawer, err := initDrawer()
 	if err != nil {
 		return nil, err
 	}
-	return drawer.RenderBytes(subject, status, color)
+	return drawer.RenderBytes(subject, status, color, style)
 }
 
 const (
@@ -107,8 +112,11 @@ func initDrawer() (*badgeDrawer, error) {
 			return
 		}
 		drawer = &badgeDrawer{
-			fd:    fd,
-			tmpl:  template.Must(template.New("flat-template").Parse(flatTemplate)),
+			fd: fd,
+			templates: map[Style]*template.Template{
+				StyleFlat:       template.Must(template.New("flat-template").Parse(flatTemplate)),
+				StyleFlatSquare: template.Must(template.New("flat-square-template").Parse(flatSquareTemplate)),
+			},
 			mutex: &sync.Mutex{},
 		}
 		initError = nil

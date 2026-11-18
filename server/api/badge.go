@@ -42,7 +42,8 @@ import (
 //	@Produce	image/svg+xml
 //	@Success	200
 //	@Tags		Badges
-//	@Param		repo_id	path	int	true	"the repository id"
+//	@Param		repo_id	path	int		true	"the repository id"
+//	@Param		style	query	string	false	"the badge style"	Enums(flat, flat-square)
 func GetBadge(c *gin.Context) {
 	_store := store.FromContext(c)
 
@@ -146,7 +147,7 @@ func GetBadge(c *gin.Context) {
 		}
 	}
 
-	badge, err := badges.Generate(name, status)
+	badge, err := badges.Generate(name, status, badges.ParseStyle(c.Query("style")))
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to generate badge.")
 	} else {

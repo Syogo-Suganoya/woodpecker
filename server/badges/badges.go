@@ -49,9 +49,9 @@ func getBadgeStatusLabelAndColor(status *model.StatusValue) (string, Color) {
 }
 
 // Generate an SVG badge based on a pipeline.
-func Generate(name string, status *model.StatusValue) (string, error) {
+func Generate(name string, status *model.StatusValue, style Style) (string, error) {
 	label, color := getBadgeStatusLabelAndColor(status)
-	bytes, err := RenderBytes(name, label, color)
+	bytes, err := RenderBytes(name, label, color, style)
 	if err != nil {
 		log.Warn().Err(err).Msg("could not render badge")
 		return "", err
