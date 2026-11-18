@@ -44,6 +44,10 @@ export default function useRepos() {
     });
   }
 
+  function sortReposByName(repos: Repo[]): Repo[] {
+    return [...repos].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }
+
   function updateLastAccess(repoId: number) {
     lastAccess.value.set(repoId, Date.now());
   }
@@ -51,6 +55,7 @@ export default function useRepos() {
   return {
     sortReposByLastAccess,
     sortReposByLastActivity,
+    sortReposByName,
     repoWithLastPipeline,
     updateLastAccess,
   };
