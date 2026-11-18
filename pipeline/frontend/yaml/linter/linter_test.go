@@ -15,6 +15,7 @@
 package linter_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -112,6 +113,52 @@ steps:
 	}
 }
 
+func TestLintImage(t *testing.T) {
+	testdata := []struct {
+		image     string
+		isWarning bool
+		valid     bool
+	}{
+		{image: "golang", valid: true},
+		{image: "golang:1.25", valid: true},
+		{image: "localhost:5000/foo/bar:v1", valid: true},
+		{image: "ghcr.io/foo/bar@sha256:0000000000000000000000000000000000000000000000000000000000000000", valid: true},
+		// can only be validated after the substitution
+		{image: "${IMAGE}", valid: true},
+		{image: "golang:${GO_VERSION}", valid: true},
+		{image: "alpine - echo hello", valid: false, isWarning: false},
+		{image: "Alpine", valid: false, isWarning: true},
+		{image: "alpine:", valid: false, isWarning: true},
+	}
+
+	for _, tt := range testdata {
+		t.Run(tt.image, func(t *testing.T) {
+			from := fmt.Sprintf("steps: { build: { image: %q } }", tt.image)
+			conf, err := yaml.ParseString(from)
+			require.NoError(t, err)
+
+			lerr := linter.New().Lint([]*linter.WorkflowConfig{{
+				File:      from,
+				RawConfig: from,
+				Workflow:  conf,
+			}})
+
+			var imageErrors []*errors.PipelineError
+			for _, e := range errors.GetPipelineErrors(lerr) {
+				if strings.Contains(e.Message, "image") || strings.Contains(e.Message, "Image") {
+					imageErrors = append(imageErrors, e)
+				}
+			}
+			if tt.valid {
+				assert.Empty(t, imageErrors)
+				return
+			}
+			require.Len(t, imageErrors, 1)
+			assert.Equal(t, tt.isWarning, imageErrors[0].IsWarning)
+		})
+	}
+}
+
 func TestLintDeeplyNestedBackendOptions(t *testing.T) {
 	config := `
 when:
@@ -155,6 +202,18 @@ func TestLintErrors(t *testing.T) {
 		{
 			from: "steps: { build: { image: '' }  }",
 			want: "Invalid or missing image",
+		},
+		{
+			from: "steps: { build: { image: \"alpine\\n- echo hello\" }  }",
+			want: "Invalid image `alpine\n- echo hello`: must not contain whitespace",
+		},
+		{
+			from: "steps: { build: { image: 'alpine - echo hello' }  }",
+			want: "Invalid image `alpine - echo hello`: must not contain whitespace",
+		},
+		{
+			from: "steps: { build: { image: 'Alpine' }  }",
+			want: "Image `Alpine` seems to be invalid: invalid reference format: repository name (library/Alpine) must be lowercase",
 		},
 		{
 			from: "steps: { build: { image: golang, privileged: true }  }",

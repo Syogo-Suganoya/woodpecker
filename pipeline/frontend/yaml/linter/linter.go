@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
+	"unicode"
 
 	"go.uber.org/multierr"
 
@@ -231,8 +233,21 @@ func (l *Linter) lintDependsOn(config *WorkflowConfig, c *types.Container, area 
 }
 
 func (l *Linter) lintImage(config *WorkflowConfig, c *types.Container, area string) error {
+	field := fmt.Sprintf("%s.%s", area, c.Name)
 	if len(c.Image) == 0 {
-		return newLinterError("Invalid or missing image", config.File, fmt.Sprintf("%s.%s", area, c.Name), false)
+		return newLinterError("Invalid or missing image", config.File, field, false)
+	}
+	// an image name can never contain whitespace, e.g. if `commands:` was forgotten
+	// and the commands got appended to the image as a multiline string
+	if strings.ContainsFunc(c.Image, unicode.IsSpace) {
+		return newLinterError(fmt.Sprintf("Invalid image `%s`: must not contain whitespace", c.Image), config.File, field+".image", false)
+	}
+	// images using variables can only be validated after the substitution
+	if !strings.Contains(c.Image, "$") {
+		if _, err := utils.ParseNamed(c.Image); err != nil {
+			// only warn as some backends (e.g. local) do not require a valid image reference
+			return newLinterError(fmt.Sprintf("Image `%s` seems to be invalid: %s", c.Image, err), config.File, field+".image", true)
+		}
 	}
 	return nil
 }
