@@ -22,3 +22,10 @@ If you'd like to respect other or further events, you can add the `events` query
 -<scheme>://<hostname>/api/badges/<repo-id>/status.svg
 +<scheme>://<hostname>/api/badges/<repo-id>/status.svg?events=manual,cron
 ```
+
+The badge uses the `flat` style by default. If you prefer a badge with square corners and solid colors, you can set the `style` query parameter to `flat-square`:
+
+```diff
+-<scheme>://<hostname>/api/badges/<repo-id>/status.svg
++<scheme>://<hostname>/api/badges/<repo-id>/status.svg?style=flat-square
+```

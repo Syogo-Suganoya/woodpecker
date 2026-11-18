@@ -32,38 +32,59 @@ var (
 	badgeFailure = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="89" height="20"><linearGradient id="smooth" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><mask id="round"><rect width="89" height="20" rx="3" fill="#fff"/></mask><g mask="url(#round)"><rect width="49" height="20" fill="#555"/><rect x="49" width="40" height="20" fill="#e05d44"/><rect width="89" height="20" fill="url(#smooth)"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="25.5" y="15" fill="#010101" fill-opacity=".3">pipeline</text><text x="25.5" y="14">pipeline</text><text x="68" y="15" fill="#010101" fill-opacity=".3">failure</text><text x="68" y="14">failure</text></g></svg>`
 	badgeError   = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="81" height="20"><linearGradient id="smooth" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><mask id="round"><rect width="81" height="20" rx="3" fill="#fff"/></mask><g mask="url(#round)"><rect width="49" height="20" fill="#555"/><rect x="49" width="32" height="20" fill="#9f9f9f"/><rect width="81" height="20" fill="url(#smooth)"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="25.5" y="15" fill="#010101" fill-opacity=".3">pipeline</text><text x="25.5" y="14">pipeline</text><text x="64" y="15" fill="#010101" fill-opacity=".3">error</text><text x="64" y="14">error</text></g></svg>`
 	badgeStarted = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="94" height="20"><linearGradient id="smooth" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><mask id="round"><rect width="94" height="20" rx="3" fill="#fff"/></mask><g mask="url(#round)"><rect width="49" height="20" fill="#555"/><rect x="49" width="45" height="20" fill="#dfb317"/><rect width="94" height="20" fill="url(#smooth)"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="25.5" y="15" fill="#010101" fill-opacity=".3">pipeline</text><text x="25.5" y="14">pipeline</text><text x="70.5" y="15" fill="#010101" fill-opacity=".3">started</text><text x="70.5" y="14">started</text></g></svg>`
+
+	badgeSuccessFlatSquare = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="98" height="20"><g shape-rendering="crispEdges"><rect width="49" height="20" fill="#555"/><rect x="49" width="49" height="20" fill="#44cc11"/></g><g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11"><text x="25.5" y="14">pipeline</text><text x="72.5" y="14">success</text></g></svg>`
 )
 
 // Generate an SVG badge based on a pipeline.
 func TestGenerate(t *testing.T) {
 	status := model.StatusDeclined
-	badge, err := Generate("pipeline", &status)
+	badge, err := Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeNone, badge)
 	status = model.StatusSuccess
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeSuccess, badge)
 	status = model.StatusFailure
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeFailure, badge)
 	status = model.StatusError
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeError, badge)
 	status = model.StatusKilled
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeError, badge)
 	status = model.StatusPending
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeStarted, badge)
 	status = model.StatusRunning
-	badge, err = Generate("pipeline", &status)
+	badge, err = Generate("pipeline", &status, StyleFlat)
 	assert.NoError(t, err)
 	assert.Equal(t, badgeStarted, badge)
+}
+
+func TestGenerateFlatSquare(t *testing.T) {
+	status := model.StatusSuccess
+	badge, err := Generate("pipeline", &status, StyleFlatSquare)
+	assert.NoError(t, err)
+	assert.Equal(t, badgeSuccessFlatSquare, badge)
+
+	// unknown styles fall back to the default style
+	badge, err = Generate("pipeline", &status, Style("unknown"))
+	assert.NoError(t, err)
+	assert.Equal(t, badgeSuccess, badge)
+}
+
+func TestParseStyle(t *testing.T) {
+	assert.Equal(t, StyleFlat, ParseStyle(""))
+	assert.Equal(t, StyleFlat, ParseStyle("flat"))
+	assert.Equal(t, StyleFlatSquare, ParseStyle("flat-square"))
+	assert.Equal(t, StyleFlat, ParseStyle("unknown"))
 }
 
 func TestBadgeDrawerRender(t *testing.T) {
@@ -77,15 +98,17 @@ func TestBadgeDrawerRender(t *testing.T) {
 	assert.NoError(t, err)
 
 	d := &badgeDrawer{
-		fd:    fd,
-		tmpl:  template.Must(template.New("mock-template").Parse(mockTemplate)),
+		fd: fd,
+		templates: map[Style]*template.Template{
+			StyleFlat: template.Must(template.New("mock-template").Parse(mockTemplate)),
+		},
 		mutex: &sync.Mutex{},
 	}
 
 	output := "XXX,YYY,#c0c0c0,15.5,29,41,26,55"
 
 	var buf bytes.Buffer
-	assert.NoError(t, d.Render("XXX", "YYY", "#c0c0c0", &buf))
+	assert.NoError(t, d.Render("XXX", "YYY", "#c0c0c0", StyleFlat, &buf))
 	assert.Equal(t, output, buf.String())
 }
 
@@ -100,14 +123,16 @@ func TestBadgeDrawerRenderBytes(t *testing.T) {
 	assert.NoError(t, err)
 
 	d := &badgeDrawer{
-		fd:    fd,
-		tmpl:  template.Must(template.New("mock-template").Parse(mockTemplate)),
+		fd: fd,
+		templates: map[Style]*template.Template{
+			StyleFlat: template.Must(template.New("mock-template").Parse(mockTemplate)),
+		},
 		mutex: &sync.Mutex{},
 	}
 
 	output := "XXX,YYY,#c0c0c0,15.5,29,41,26,55"
 
-	bytes, err := d.RenderBytes("XXX", "YYY", "#c0c0c0")
+	bytes, err := d.RenderBytes("XXX", "YYY", "#c0c0c0", StyleFlat)
 
 	assert.NoError(t, err)
 	assert.Equal(t, output, string(bytes))
